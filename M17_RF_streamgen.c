@@ -154,10 +154,15 @@ void ConvolPuncture46_61(uint8_t *in, uint8_t *out)
 /*
 Params:
 ./this out_file dest_addr src_addr
+
+We assume that the payload is Codec2, 3200bps (full rate)
+The file size in bytes would be then divisible by 8.
+
+Out_file gets filled with unpacked (1 bit per byte) type-4 bits.
 */
 int main(int argc, char *argv[])
 {
-	uint16_t type=(1<<0)|(0b10<<2); //FIXME: type indicator - stream, voice, codec2 3200bps, no encryption
+	uint16_t type=(1<<0)|(0b10<<1); //type indicator - stream, voice, codec2 3200bps, no encryption
 	uint8_t nonce[16]={0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0};
 	
 	if(argc==4)
