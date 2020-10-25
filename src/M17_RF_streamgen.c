@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define LEAD_PREAM				40				//first (lead) preamble length in ms
 
@@ -33,12 +34,13 @@ const uint8_t sync_1[2]={0x32, 0x43};		//SYNC for the link setup frame
 const uint8_t sync_2[2]={0x2B, 0x7E};		//SYNC for all subsequent frames
 
 uint8_t	ConvolLUT[32];						//a look-up table for convolutional encoder
-uint8_t type_1[30];							//type-1 packed bits
+uint8_t type_1[30];						//type-1 packed bits
 uint8_t type_1_u[300];						//type-1 unpacked bits
 uint8_t type_2[500];						//type-2 unpacked bits
 uint8_t type_3[384];
 uint8_t type_4[384];
 FILE	*f_out;
+FILE *f_in;
 
 //Takes an ASCII callsign in a null terminated char* and encodes it using base 40.
 //Returns -1 (all Fs) if the provided callsign is longer than 9 characters, which
@@ -164,16 +166,17 @@ int main(int argc, char *argv[])
 {
 	uint16_t type=(1<<0)|(0b10<<1); //type indicator - stream, voice, codec2 3200bps, no encryption
 	uint8_t nonce[16]={0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0};
-	
-	if(argc==4)
+
+	if(argc==5)
 	{
-		dest_addr.val=encode_callsign_base40(argv[2]);
-		src_addr.val=encode_callsign_base40(argv[3]);
+                // link setup
+		dest_addr.val=encode_callsign_base40(argv[1]);
+		src_addr.val=encode_callsign_base40(argv[2]);
 		
 		printf("DEST\t0x%012llX\n", dest_addr.val);
 		printf("SRC \t0x%012llX\n", src_addr.val);
 		
-		f_out=fopen(argv[1], "wb");
+		f_out=fopen(argv[4], "wb");
 		
 		//preamble
 		for(uint16_t i=0; i<(LEAD_PREAM*9600)/1000; i++)
@@ -206,14 +209,42 @@ int main(int argc, char *argv[])
 		
 		//convolutionally encode type-1 to type-2
 		;
-		
-		fclose(f_out);
-		
+
+                // frames
+                if(!strcmp(argv[3], "-"))
+                {
+                        f_in = stdin;
+                } else {
+                        f_in = fopen(argv[1], "rb");
+
+                        if(f_in == NULL)
+                        {
+                                printf("No valid input data to work with\n");
+
+                                return 1;
+                        }
+                }
+
+                uint8_t payload[16];
+                size_t bytes = 0;
+
+                while(1)
+                {
+                        bytes = fread(payload, 1, 16, f_in);
+                        fwrite(payload, 1, 16, f_out);
+
+                        if(bytes < 16)
+                                if(feof(f_in)) break;
+                }
+
+                fclose(f_in);
+                fclose(f_out);
+
 		return 0;
 	}
 	else
 	{
-		printf("Not enough params\n");
+		printf("Invalid number of params\n");
 		
 		return 1;
 	}
